@@ -5,10 +5,17 @@ pydocstyle docstrings convention needs error code and class parser for be
 included as module into flake8
 """
 
+import ast
+from itertools import takewhile
+
 from flake8_polyfill import stdin
 import pycodestyle
 try:
     import pydocstyle as pep257
+    from pydocstyle.checker import check_for
+    from pydocstyle.utils import is_blank
+    from pydocstyle import violations
+    from pydocstyle.parser import Definition, Function
     module_name = 'pydocstyle'
 except ImportError:
     import pep257
@@ -50,6 +57,38 @@ class AllError(pep257.Error):
         return 0
 
 
+D250 = violations.D2xx.create_error('D250', 'All docstrings should have quotes on their own lines', 'found {0}')
+D251 = violations.D2xx.create_error('D251', 'One blank line required after function docstring', 'found {0}')
+
+
+@check_for(Definition)
+def check_one_liners_quotes(self, definition, docstring):
+    """D250: All docstrings should have quotes on their own lines.
+    """
+    if docstring:
+        lines = ast.literal_eval(docstring).split('\n')
+        if len(lines) < 3 or not is_blank(lines[0]) or not is_blank(lines[len(lines) - 1]):
+            return D250(len(lines))
+
+
+@check_for(Function)
+def check_one_blank_after(self, function, docstring):
+    """D251: One blank line required after function docstring.
+    """
+    if docstring:
+        before, _, after = function.source.partition(docstring)
+        blanks_before = list(map(is_blank, before.split('\n')[:-1]))
+        blanks_after = list(map(is_blank, after.split('\n')[1:]))
+        blanks_before_count = sum(takewhile(bool, reversed(blanks_before)))
+        blanks_after_count = sum(takewhile(bool, blanks_after))
+        if not all(blanks_after) and blanks_after_count != 1:
+            return D251(blanks_after_count)
+
+
+pep257.ConventionChecker.check_one_liners_quotes = check_one_liners_quotes
+pep257.ConventionChecker.check_one_blank_after = check_one_blank_after
+
+
 class pep257Checker(object):
     """Flake8 needs a class to check python file."""
 
@@ -85,7 +124,7 @@ class pep257Checker(object):
 
     def run(self):
         """Use directly check() api from pydocstyle."""
-        checked_codes = pep257.conventions.pep257 | {'D998', 'D999'}
+        checked_codes = pep257.conventions.pep257 | {'D998', 'D999', 'D250', 'D251'}
         for error in self._check_source():
             if isinstance(error, pep257.Error) and error.code in checked_codes:
                 # NOTE(sigmavirus24): Fixes GitLab#3
