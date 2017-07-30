@@ -14,8 +14,7 @@ try:
     import pydocstyle as pep257
     from pydocstyle.checker import check_for
     from pydocstyle.utils import is_blank
-    from pydocstyle import violations
-    from pydocstyle.parser import Definition, Function
+    from pydocstyle import parser, violations
     module_name = 'pydocstyle'
 except ImportError:
     import pep257
@@ -61,7 +60,7 @@ D250 = violations.D2xx.create_error('D250', 'All docstrings should have quotes o
 D251 = violations.D2xx.create_error('D251', 'One blank line required after function docstring', 'found {0}')
 
 
-@check_for(Definition)
+@check_for(parser.Definition)
 def check_one_liners_quotes(self, definition, docstring):
     """D250: All docstrings should have quotes on their own lines.
     """
@@ -71,7 +70,7 @@ def check_one_liners_quotes(self, definition, docstring):
             return D250(len(lines))
 
 
-@check_for(Function)
+@check_for(parser.Function)
 def check_one_blank_after(self, function, docstring):
     """D251: One blank line required after function docstring.
     """
@@ -87,6 +86,10 @@ def check_one_blank_after(self, function, docstring):
 
 pep257.ConventionChecker.check_one_liners_quotes = check_one_liners_quotes
 pep257.ConventionChecker.check_one_blank_after = check_one_blank_after
+
+
+# We do not want __init__ to be required to have a docstring.
+parser.VARIADIC_MAGIC_METHODS = ('__call__', '__new__')
 
 
 class pep257Checker(object):
